@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "destinations": {
+      "title": "Destination",
+      "description": "A tourist spot in Kaghan Valley",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the destination" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "photo": { "type": "string", "description": "URL to the photo" },
+        "bestTime": { "type": "string", "description": "Best months to visit" },
+        "distance": { "type": "string", "description": "Distance from Naran or Balakot" },
+        "difficulty": { "type": "string", "enum": ["Easy", "Moderate", "Hard"] },
+        "category": { "type": "string", "enum": ["Lakes", "Meadows", "Mountains", "Towns"] }
+      },
+      "required": ["name", "description", "photo", "category"]
+    },
+    "hotels": {
+      "title": "Hotel",
+      "description": "A hotel or stay in Kaghan Valley",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the hotel" },
+        "location": { "type": "string", "description": "City or area" },
+        "price": { "type": "number", "description": "Price per night in PKR" },
+        "rating": { "type": "number", "description": "Star rating (1-5)" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "amenities": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "location", "price"]
+    },
+    "packages": {
+      "title": "Tour Package",
+      "description": "A curated travel package",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Package title" },
+        "duration": { "type": "string", "description": "Duration (e.g., 3 Days / 2 Nights)" },
+        "price": { "type": "number", "description": "Total price in PKR" },
+        "itinerary": { "type": "array", "items": { "type": "string" } },
+        "includes": { "type": "array", "items": { "type": "string" } },
+        "groupSize": { "type": "string", "description": "Recommended group size" },
+        "image": { "type": "string", "description": "Featured image URL" }
+      },
+      "required": ["title", "duration", "price"]
+    },
+    "inquiries": {
+      "title": "Contact Inquiry",
+      "description": "A message from a potential tourist",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Sender's name" },
+        "email": { "type": "string", "format": "email" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "message"]
+    },
+    "newsletter": {
+      "title": "Newsletter Subscription",
+      "description": "A user's email for marketing",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "subscribedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/destinations/{destId}": { "schema": "destinations", "description": "Collection of tourist spots" },
+    "/hotels/{hotelId}": { "schema": "hotels", "description": "Collection of hotels" },
+    "/packages/{pkgId}": { "schema": "packages", "description": "Collection of tour packages" },
+    "/inquiries/{inquiryId}": { "schema": "inquiries", "description": "User contact messages" },
+    "/newsletter/{subId}": { "schema": "newsletter", "description": "Newsletter subscribers" }
+  }
+}

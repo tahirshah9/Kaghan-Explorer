@@ -1,0 +1,7 @@
+{
+  "name": "Kaghan Explorer",
+  "description": "A premium tourism website for Kaghan Valley, Pakistan, featuring destinations, hotels, tour packages, and a travel guide.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
