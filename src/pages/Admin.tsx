@@ -12,6 +12,31 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [destinations, setDestinations] = useState<any[]>([]);
+  const [hotels, setHotels] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formData, setFormData] = useState<any>({});
+
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSignIn = async () => {
+    setError(null);
+    try {
+      await signInWithGoogle();
+    } catch (err: any) {
+      console.error("Sign-in error:", err);
+      if (err.code === "auth/popup-blocked") {
+        setError("The sign-in popup was blocked by your browser. Please allow popups for this site.");
+      } else if (err.code === "auth/unauthorized-domain") {
+        setError("This domain is not authorized for sign-in. Please add your Vercel URL to the 'Authorized Domains' in Firebase Console.");
+      } else if (err.code === "auth/operation-not-allowed") {
+        setError("Google sign-in is not enabled in your Firebase project. Please enable it in the Firebase Console.");
+      } else {
+        setError(err.message || "An unexpected error occurred during sign-in.");
+      }
+    }
+  };
 
   useEffect(() => {
     if (!auth) return;
@@ -35,9 +60,24 @@ export default function Admin() {
       setSubscribers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const unsubDests = onSnapshot(collection(db, "destinations"), (snapshot) => {
+      setDestinations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubHotels = onSnapshot(collection(db, "hotels"), (snapshot) => {
+      setHotels(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubPkgs = onSnapshot(collection(db, "packages"), (snapshot) => {
+      setPackages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubInquiries();
       unsubSubs();
+      unsubDests();
+      unsubHotels();
+      unsubPkgs();
     };
   }, [user]);
 
@@ -80,6 +120,36 @@ export default function Admin() {
     }
   };
 
+  const handleAddItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!db || !isAdmin) return;
+    try {
+      const collectionName = activeTab;
+      await addDoc(collection(db, collectionName), {
+        ...formData,
+        createdAt: new Date()
+      });
+      setShowAddForm(false);
+      setFormData({});
+      alert(`${activeTab} added successfully!`);
+    } catch (error) {
+      console.error("Error adding item:", error);
+      alert("Error adding item.");
+    }
+  };
+
+  const deleteItem = async (id: string) => {
+    if (!db || !isAdmin || !window.confirm("Are you sure you want to delete this item?")) return;
+    try {
+      const { deleteDoc, doc } = await import("firebase/firestore");
+      await deleteDoc(doc(db, activeTab, id));
+      alert("Item deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting item:", error);
+      alert("Error deleting item.");
+    }
+  };
+
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
 
   if (!user || !isAdmin) {
@@ -87,8 +157,13 @@ export default function Admin() {
       <div className="h-screen flex flex-col items-center justify-center space-y-8 bg-emerald-50">
         <h1 className="text-4xl font-bold text-emerald-950">Admin Panel</h1>
         <p className="text-emerald-800/60">Please sign in with an admin account to continue.</p>
+        {error && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-medium max-w-md text-center">
+            {error}
+          </div>
+        )}
         <button
-          onClick={signInWithGoogle}
+          onClick={handleSignIn}
           className="bg-emerald-950 text-white px-8 py-4 rounded-2xl font-bold hover:bg-emerald-900 transition-all"
         >
           Sign in with Google
@@ -137,7 +212,7 @@ export default function Admin() {
         <header className="flex justify-between items-center">
           <div className="flex items-center space-x-6">
             <h1 className="text-4xl font-bold text-emerald-950 capitalize">{activeTab}</h1>
-            {isAdmin && (
+            {isAdmin && activeTab === "dashboard" && (
               <button
                 onClick={seedData}
                 disabled={seeding}
@@ -145,6 +220,14 @@ export default function Admin() {
               >
                 <Database className="h-4 w-4" />
                 <span>{seeding ? "Seeding..." : "Seed Initial Data"}</span>
+              </button>
+            )}
+            {isAdmin && ["destinations", "hotels", "packages"].includes(activeTab) && (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="flex items-center space-x-2 bg-amber-400 text-emerald-950 px-4 py-2 rounded-xl text-xs font-bold hover:bg-amber-300 transition-all"
+              >
+                <span>+ Add New {activeTab.slice(0, -1)}</span>
               </button>
             )}
           </div>
@@ -233,9 +316,65 @@ export default function Admin() {
           )}
 
           {["destinations", "hotels", "packages"].includes(activeTab) && (
-            <div className="flex flex-col items-center justify-center h-full space-y-4 text-emerald-800/40">
-              <Package className="h-20 w-20" />
-              <p className="text-xl font-bold italic">Management for {activeTab} coming soon...</p>
+            <div className="space-y-8">
+              {showAddForm && (
+                <div className="bg-emerald-50 p-8 rounded-[2rem] border border-emerald-100 space-y-6">
+                  <h3 className="text-xl font-bold text-emerald-950">Add New {activeTab.slice(0, -1)}</h3>
+                  <form onSubmit={handleAddItem} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {activeTab === "destinations" && (
+                      <>
+                        <input type="text" placeholder="Name" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, name: e.target.value})} required />
+                        <input type="text" placeholder="Category" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, category: e.target.value})} required />
+                        <input type="text" placeholder="Photo URL" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, photo: e.target.value})} required />
+                        <input type="text" placeholder="Best Time" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, bestTime: e.target.value})} required />
+                        <input type="text" placeholder="Distance" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, distance: e.target.value})} required />
+                        <input type="text" placeholder="Difficulty" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, difficulty: e.target.value})} required />
+                        <textarea placeholder="Description" className="p-3 rounded-xl border border-emerald-200 md:col-span-2" onChange={e => setFormData({...formData, description: e.target.value})} required />
+                      </>
+                    )}
+                    {activeTab === "hotels" && (
+                      <>
+                        <input type="text" placeholder="Hotel Name" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, name: e.target.value})} required />
+                        <input type="text" placeholder="Location" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, location: e.target.value})} required />
+                        <input type="number" placeholder="Price per night" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, price: Number(e.target.value)})} required />
+                        <input type="number" step="0.1" placeholder="Rating (1-5)" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, rating: Number(e.target.value)})} required />
+                        <input type="text" placeholder="Photo URL" className="p-3 rounded-xl border border-emerald-200 md:col-span-2" onChange={e => setFormData({...formData, photos: [e.target.value]})} required />
+                        <input type="text" placeholder="Amenities (comma separated)" className="p-3 rounded-xl border border-emerald-200 md:col-span-2" onChange={e => setFormData({...formData, amenities: e.target.value.split(",")})} required />
+                      </>
+                    )}
+                    {activeTab === "packages" && (
+                      <>
+                        <input type="text" placeholder="Package Title" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, title: e.target.value})} required />
+                        <input type="text" placeholder="Duration" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, duration: e.target.value})} required />
+                        <input type="number" placeholder="Price" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, price: Number(e.target.value)})} required />
+                        <input type="text" placeholder="Group Size" className="p-3 rounded-xl border border-emerald-200" onChange={e => setFormData({...formData, groupSize: e.target.value})} required />
+                        <input type="text" placeholder="Image URL" className="p-3 rounded-xl border border-emerald-200 md:col-span-2" onChange={e => setFormData({...formData, image: e.target.value})} required />
+                        <textarea placeholder="Itinerary (comma separated)" className="p-3 rounded-xl border border-emerald-200 md:col-span-2" onChange={e => setFormData({...formData, itinerary: e.target.value.split(",")})} required />
+                      </>
+                    )}
+                    <div className="md:col-span-2 flex space-x-4">
+                      <button type="submit" className="bg-emerald-950 text-white px-8 py-3 rounded-xl font-bold">Save Item</button>
+                      <button type="button" onClick={() => setShowAddForm(false)} className="bg-white text-emerald-950 px-8 py-3 rounded-xl font-bold border border-emerald-200">Cancel</button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {(activeTab === "destinations" ? destinations : activeTab === "hotels" ? hotels : packages).map((item) => (
+                  <div key={item.id} className="bg-emerald-50 rounded-2xl p-6 space-y-4 relative group">
+                    <button 
+                      onClick={() => deleteItem(item.id)}
+                      className="absolute top-4 right-4 bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </button>
+                    <img src={item.photo || item.photos?.[0] || item.image} alt="" className="w-full h-32 object-cover rounded-xl" />
+                    <h4 className="font-bold text-emerald-950">{item.name || item.title}</h4>
+                    <p className="text-xs text-emerald-800/60 line-clamp-2">{item.description || item.location || item.duration}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

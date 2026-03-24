@@ -1,11 +1,38 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, MapPin, Star, Users, ArrowRight, Play } from "lucide-react";
 import { motion } from "motion/react";
-import { DESTINATIONS, HOTELS, PACKAGES } from "../constants";
+import { DESTINATIONS as DEFAULT_DESTINATIONS, PACKAGES as DEFAULT_PACKAGES } from "../constants";
 import DestinationCard from "../components/DestinationCard";
 import PackageCard from "../components/PackageCard";
+import { db } from "../firebase";
+import { collection, onSnapshot, query, limit } from "firebase/firestore";
+import { Destination, TourPackage } from "../types";
 
 export default function Home() {
+  const [destinations, setDestinations] = useState<Destination[]>(DEFAULT_DESTINATIONS);
+  const [packages, setPackages] = useState<TourPackage[]>(DEFAULT_PACKAGES);
+
+  useEffect(() => {
+    if (!db) return;
+    
+    const unsubDests = onSnapshot(query(collection(db, "destinations"), limit(6)), (snapshot) => {
+      if (!snapshot.empty) {
+        setDestinations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Destination)));
+      }
+    });
+
+    const unsubPkgs = onSnapshot(query(collection(db, "packages"), limit(3)), (snapshot) => {
+      if (!snapshot.empty) {
+        setPackages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TourPackage)));
+      }
+    });
+
+    return () => {
+      unsubDests();
+      unsubPkgs();
+    };
+  }, []);
   return (
     <div className="space-y-24 pb-24">
       {/* Hero Section */}
@@ -100,7 +127,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {DESTINATIONS.slice(0, 3).map((dest) => (
+          {destinations.slice(0, 3).map((dest) => (
             <DestinationCard key={dest.id} destination={dest} />
           ))}
         </div>
@@ -115,7 +142,7 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {PACKAGES.map((pkg) => (
+            {packages.map((pkg) => (
               <PackageCard key={pkg.id} pkg={pkg} />
             ))}
           </div>
